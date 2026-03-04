@@ -423,24 +423,28 @@ async def cv_skip_desc(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return await _ask_for_question(update, ctx)
 
 
-async def _ask_for_question(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def _ask_for_question(update: Update, ctx: ContextTypes.DEFAULT_TYPE, message_prefix: str = ""):
     qs = ctx.user_data["new_sv"]["questions"]
     n = len(qs)
-    text = f"3️⃣ So'rov <b>№{n + 1}</b>\n\n"
+    
+    text = f"{message_prefix}\n" if message_prefix else ""
+    text += f"3️⃣ So'rov <b>№{n + 1}</b>\n\n"
+    
     if n > 0:
-        text += f"✅ Allaqachon qo'shildi: {n} ta savol\n"
-        text += "<i>/done — yakunlash</i>\n"
-        text += "<i>/undo — oxirgi savolni o'chirish</i>\n\n"
+        text += f"✅ Hozirgacha qo'shildi: <b>{n}</b> ta savol\n"
+        text += "<i>Agar savollarni tugatmoqchi bo'lsangiz: /done buyrug'ini bosing.</i>\n\n"
 
     kb = ReplyKeyboardMarkup(
-        [[KeyboardButton("📊 So'rovnoma yuborish", request_poll=KeyboardButtonPollType())]],
+        [[KeyboardButton("📊 So'rovnoma yaratish", request_poll=KeyboardButtonPollType())]],
         resize_keyboard=True,
         one_time_keyboard=False
     )
 
-    await update.message.reply_text(
-        f"{text}"
-        "Pastdagi tugmani bosib <b>So'rovnoma</b> yuboring:",
+    # Agar update.message bo'lmasa (callback dan kelsa)
+    send_fn = update.message.reply_text if update.message else update.callback_query.message.reply_text
+
+    await send_fn(
+        text + "Pastdagi tugmani bosing va <b>Poll (So'rovnoma)</b> yarating:",
         parse_mode=ParseMode.HTML,
         reply_markup=kb
     )
@@ -465,13 +469,9 @@ async def cv_poll_received(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "allow_multi": allow_multi
     })
 
-    qs = ctx.user_data["new_sv"]["questions"]
-    await update.message.reply_text(
-        f"✅ Savol №{len(qs)} qo'shildi!\n\n"
-        "Keyingi savolni yuboring yoki /done bosing.",
-        parse_mode=ParseMode.HTML
-    )
-    return CV_QUESTIONS
+    # Keyboard saqlanib qolishi uchun qayta yuboramiz
+    n = len(ctx.user_data["new_sv"]["questions"])
+    return await _ask_for_question(update, ctx, message_prefix=f"✅ Savol <b>№{n}</b> saqlandi!")
 
 
 async def cv_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -481,13 +481,7 @@ async def cv_undo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return CV_QUESTIONS
 
     removed = qs.pop()
-    await update.message.reply_text(
-        f"↩️ <b>«{removed['question']}»</b> o'chirildi.\n\n"
-        f"Hozirda <b>{len(qs)}</b> ta savol.\n\n"
-        f"Yangi savol yuboring yoki /done.",
-        parse_mode=ParseMode.HTML,
-    )
-    return CV_QUESTIONS
+    return await _ask_for_question(update, ctx, message_prefix=f"↩️ <b>«{removed['question']}»</b> o'chirildi.")
 
 
 async def cv_done(update: Update, ctx: ContextTypes.DEFAULT_TYPE):

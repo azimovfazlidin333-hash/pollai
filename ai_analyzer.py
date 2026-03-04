@@ -4,8 +4,12 @@ AI tahlil moduli — Azure OpenAI yordamida survey natijalarini tahlil qilish.
 
 import os
 import json
+import logging
+import asyncio
 from openai import AsyncAzureOpenAI
 from database import get_survey, get_survey_results, save_ai_analysis, log_analysis
+
+logger = logging.getLogger(__name__)
 
 
 def _client(secondary=False):
@@ -72,27 +76,39 @@ async def analyze_survey(survey_id: int, use_secondary: bool = False) -> dict:
         f"Natijalar:\n{results_text}"
     )
 
-    client = _client(secondary)
-    dep = _deployment(secondary)
+    client = _client(use_secondary)
+    dep = _deployment(use_secondary)
+    
+    logger.info(f"AI analysis started for survey {survey_id} (mode={'deep' if use_secondary else 'fast'})")
+    
     try:
-        resp = await client.chat.completions.create(
-            model=dep,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
-            ],
-            temperature=0.3,
-            max_tokens=1500,
-            response_format={"type": "json_object"},
+        # 45 soniya timeout qo'shamiz
+        resp = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=dep,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                temperature=0.3,
+                max_tokens=1500,
+                response_format={"type": "json_object"},
+            ),
+            timeout=45.0
         )
         raw = resp.choices[0].message.content
+        logger.info(f"AI analysis finished for survey {survey_id}")
         analysis = json.loads(raw)
         pt = resp.usage.prompt_tokens if resp.usage else 0
         ct = resp.usage.completion_tokens if resp.usage else 0
         await log_analysis(survey_id, dep, pt, ct, raw)
         await save_ai_analysis(survey_id, analysis)
         return analysis
+    except asyncio.TimeoutError:
+        logger.error(f"AI analysis timeout for survey {survey_id}")
+        return {"error": "AI tahlil vaqti tugadi (timeout). Iltimos, qayta urinib ko'ring.", "summary": "AI tahlil juda uzoq davom etdi"}
     except Exception as e:
+        logger.error(f"AI analysis error: {e}")
         return {"error": str(e), "summary": "AI tahlil amalga oshmadi"}
 
 
