@@ -6,8 +6,6 @@ import logging
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
 from telegram import BotCommand
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -19,7 +17,10 @@ from user_handlers import (
     cmd_start, cmd_surveys, cmd_about, cmd_survey_link,
     cb_sv_info, cb_sv_start, cb_sv_results, cb_sv_ai, cb_sv_list,
     handle_poll_answer,
+    start_register, get_faculty, get_course, get_gender,
+    FACULTY, COURSE, GENDER
 )
+
 from admin_handlers import (
     cmd_admin,
     cb_adm_home, cb_adm_list, cb_adm_survey,
@@ -29,6 +30,8 @@ from admin_handlers import (
     cb_adm_stats,
     build_create_conv,
 )
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,16 +44,15 @@ async def post_init(app: Application):
     """DB ni ishga tushirish va bot buyruqlarini ro'yxatga olish."""
     await init_db()
     logger.info("✅ Database tayyor.")
+
     await app.bot.set_my_commands([
         BotCommand("start",   "Botni boshlash"),
         BotCommand("surveys", "Faol so'rovnomalar"),
         BotCommand("about",   "Bot haqida"),
         BotCommand("admin",   "Admin panel"),
-        BotCommand("done",    "So'rovnoma yaratishni yakunlash"),
-        BotCommand("undo",    "Oxirgi savolni o'chirish"),
         BotCommand("cancel",  "Bekor qilish"),
-        BotCommand("skip",    "O'tkazib yuborish"),
     ])
+
     logger.info("✅ Bot buyruqlari sozlandi.")
 
 
@@ -66,32 +68,37 @@ def main():
         .build()
     )
 
-    # ── 1. ConversationHandler (eng yuqori ustuvorlik) ──
+    # ── 1. REGISTER ConversationHandler (ENG MUHIM)
     app.add_handler(build_create_conv())
 
-    # ── 2. Foydalanuvchi komandalar ──
-    app.add_handler(CommandHandler("start",   cmd_start))
+    # ── 2. USER REGISTER ConversationHandler
+    app.add_handler(CommandHandler("start", start_register))
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_faculty))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_course))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender))
+
+    # ── 3. USER COMMANDS
     app.add_handler(CommandHandler("surveys", cmd_surveys))
-    app.add_handler(CommandHandler("about",   cmd_about))
+    app.add_handler(CommandHandler("about", cmd_about))
 
-    # ── 3. Admin komandalar ──
-    app.add_handler(CommandHandler("admin",  cmd_admin))
-    app.add_handler(CommandHandler("cancel", lambda u, c: None))  # global fallback
+    # ── 4. ADMIN COMMANDS
+    app.add_handler(CommandHandler("admin", cmd_admin))
 
-    # ── 4. /s_N direct link ──
+    # ── 5. SURVEY LINK (/s_1)
     app.add_handler(MessageHandler(filters.Regex(r"^/s_\d+"), cmd_survey_link))
 
-    # ── 5. PollAnswer — anonim javoblarni qayd etish ──
+    # ── 6. POLL ANSWERS
     app.add_handler(PollAnswerHandler(handle_poll_answer))
 
-    # ── 6. Foydalanuvchi callback-lar ──
+    # ── 7. USER CALLBACKS
     app.add_handler(CallbackQueryHandler(cb_sv_info,     pattern=r"^sv_info:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_sv_start,    pattern=r"^sv_start:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_sv_results,  pattern=r"^sv_results:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_sv_ai,       pattern=r"^sv_ai:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_sv_list,     pattern=r"^sv_list$"))
 
-    # ── 7. Admin callback-lar ──
+    # ── 8. ADMIN CALLBACKS
     app.add_handler(CallbackQueryHandler(cb_adm_home,        pattern=r"^adm_home$"))
     app.add_handler(CallbackQueryHandler(cb_adm_list,        pattern=r"^adm_list$"))
     app.add_handler(CallbackQueryHandler(cb_adm_survey,      pattern=r"^adm_sv:\d+$"))
