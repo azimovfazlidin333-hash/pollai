@@ -32,6 +32,10 @@ async def init_db():
             created_at   TEXT DEFAULT (datetime('now')),
             closed_at    TEXT,
             ai_analysis  TEXT
+            faculty TEXT,
+            course INTEGER,
+            gender TEXT,
+            deadline TEXT,
         );
 
         CREATE TABLE IF NOT EXISTS survey_questions (
@@ -326,3 +330,32 @@ async def log_analysis(survey_id: int, model: str,
             (survey_id, model, prompt_tokens, completion_tokens, text)
         )
         await db.commit()
+        # USERS TABLE
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    faculty TEXT,
+    course INTEGER,
+    gender TEXT
+)
+""")
+conn.commit()
+
+
+def save_user(user_id, faculty, course, gender):
+    cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?)",
+                   (user_id, faculty, course, gender))
+    conn.commit()
+
+
+def get_user(user_id):
+    cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return {
+        "user_id": row[0],
+        "faculty": row[1],
+        "course": row[2],
+        "gender": row[3]
+    }
