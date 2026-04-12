@@ -5,6 +5,8 @@ PollAnswerHandler anonim javoblarni qayd etadi va keyingi savolni yuboradi.
 """
 
 import logging
+from database import save_user, get_user
+from telegram.ext import ConversationHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
@@ -419,3 +421,36 @@ async def cb_sv_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(buttons),
     )
+FACULTY, COURSE, GENDER = range(3)
+
+async def start_register(update, ctx):
+    user = get_user(update.effective_user.id)
+
+    if user:
+        return ConversationHandler.END
+
+    await update.message.reply_text("Fakultetingizni kiriting:")
+    return FACULTY
+
+
+async def get_faculty(update, ctx):
+    ctx.user_data["faculty"] = update.message.text
+    await update.message.reply_text("Kursingiz (1-4):")
+    return COURSE
+
+
+async def get_course(update, ctx):
+    ctx.user_data["course"] = update.message.text
+    await update.message.reply_text("Jinsingiz (erkak/ayol):")
+    return GENDER
+
+
+async def get_gender(update, ctx):
+    save_user(
+        update.effective_user.id,
+        ctx.user_data["faculty"],
+        ctx.user_data["course"],
+        update.message.text
+    )
+    await update.message.reply_text("Ro‘yxatdan o‘tdingiz ✅")
+    return ConversationHandler.END
