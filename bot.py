@@ -16,16 +16,14 @@ from telegram.ext import (
 
 from database import init_db
 
+# ── USER HANDLERS ──
 from user_handlers import (
     cmd_start, cmd_surveys, cmd_about, cmd_survey_link,
     cb_sv_info, cb_sv_start, cb_sv_results, cb_sv_ai, cb_sv_list,
     handle_poll_answer,
-
-    # 🔥 REGISTER IMPORT QO‘SHILDI
-    start_register, get_faculty, get_course, get_gender,
-    FACULTY, COURSE, GENDER,
 )
 
+# ── ADMIN HANDLERS (IMPORTANT: cv_entry shu yerda bor) ──
 from admin_handlers import (
     cmd_admin,
     cb_adm_home, cb_adm_list, cb_adm_survey,
@@ -33,10 +31,8 @@ from admin_handlers import (
     cb_adm_ai, cb_adm_ai_show,
     cb_adm_del_confirm, cb_adm_del_yes,
     cb_adm_stats,
-    build_create_conv,
+    build_create_conv,   # 🔥 MUHIM
 )
-
-from telegram.ext import ConversationHandler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,19 +42,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ───────────────────────── POST INIT ─────────────────────────
+
 async def post_init(app: Application):
     await init_db()
     logger.info("✅ Database tayyor.")
 
     await app.bot.set_my_commands([
-        BotCommand("start",   "Botni boshlash"),
+        BotCommand("start", "Botni boshlash"),
         BotCommand("surveys", "Faol so'rovnomalar"),
-        BotCommand("about",   "Bot haqida"),
-        BotCommand("admin",   "Admin panel"),
+        BotCommand("about", "Bot haqida"),
+        BotCommand("admin", "Admin panel"),
+        BotCommand("cancel", "Bekor qilish"),
     ])
 
-    logger.info("✅ Bot commands set.")
+    logger.info("✅ Bot buyruqlari sozlandi.")
 
+
+# ───────────────────────── MAIN ─────────────────────────
 
 def main():
     token = os.getenv("BOT_TOKEN")
@@ -72,52 +73,59 @@ def main():
         .build()
     )
 
-    # ───────────────────────── REGISTER CONVERSATION ─────────────────────────
-    register_conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start_register)],
-        states={
-            FACULTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_faculty)],
-            COURSE:  [MessageHandler(filters.TEXT & ~filters.COMMAND, get_course)],
-            GENDER:  [MessageHandler(filters.TEXT & ~filters.COMMAND, get_gender)],
-        },
-        fallbacks=[]
-    )
+    # ======================================================
+    # 🔥 1. CONVERSATION HANDLER (ENG TEPADA BO‘LISHI SHART)
+    # ======================================================
+    app.add_handler(build_create_conv())
 
-    app.add_handler(register_conv)
-
-    # ───────────────────────── COMMANDS ─────────────────────────
+    # ======================================================
+    # 2. USER COMMANDS
+    # ======================================================
+    app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("surveys", cmd_surveys))
     app.add_handler(CommandHandler("about", cmd_about))
 
-    # ───────────────────────── ADMIN ─────────────────────────
+    # ======================================================
+    # 3. ADMIN COMMANDS
+    # ======================================================
     app.add_handler(CommandHandler("admin", cmd_admin))
-    app.add_handler(CommandHandler("cancel", lambda u, c: None))
 
-    # ───────────────────────── DIRECT SURVEY LINK ─────────────────────────
+    # ======================================================
+    # 4. DIRECT SURVEY LINK
+    # ======================================================
     app.add_handler(MessageHandler(filters.Regex(r"^/s_\d+"), cmd_survey_link))
 
-    # ───────────────────────── POLLS ─────────────────────────
+    # ======================================================
+    # 5. POLL ANSWER (ENG MUHIM QISM)
+    # ======================================================
     app.add_handler(PollAnswerHandler(handle_poll_answer))
 
-    # ───────────────────────── CALLBACKS ─────────────────────────
-    app.add_handler(CallbackQueryHandler(cb_sv_info,    pattern=r"^sv_info:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_sv_start,   pattern=r"^sv_start:\d+$"))
+    # ======================================================
+    # 6. USER CALLBACKS
+    # ======================================================
+    app.add_handler(CallbackQueryHandler(cb_sv_info, pattern=r"^sv_info:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_sv_start, pattern=r"^sv_start:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_sv_results, pattern=r"^sv_results:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_sv_ai,      pattern=r"^sv_ai:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_sv_list,    pattern=r"^sv_list$"))
+    app.add_handler(CallbackQueryHandler(cb_sv_ai, pattern=r"^sv_ai:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_sv_list, pattern=r"^sv_list$"))
 
-    # admin
-    app.add_handler(CallbackQueryHandler(cb_adm_home,        pattern=r"^adm_home$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_list,        pattern=r"^adm_list$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_survey,      pattern=r"^adm_sv:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_results,     pattern=r"^adm_res:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_close,       pattern=r"^adm_close:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_ai,          pattern=r"^adm_ai:\d+:(fast|deep)$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_ai_show,     pattern=r"^adm_ai_show:\d+$"))
+    # ======================================================
+    # 7. ADMIN CALLBACKS
+    # ======================================================
+    app.add_handler(CallbackQueryHandler(cb_adm_home, pattern=r"^adm_home$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_list, pattern=r"^adm_list$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_survey, pattern=r"^adm_sv:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_results, pattern=r"^adm_res:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_close, pattern=r"^adm_close:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_ai, pattern=r"^adm_ai:\d+:(fast|deep)$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_ai_show, pattern=r"^adm_ai_show:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_adm_del_confirm, pattern=r"^adm_del_confirm:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_del_yes,     pattern=r"^adm_del_yes:\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_adm_stats,       pattern=r"^adm_stats$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_del_yes, pattern=r"^adm_del_yes:\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_adm_stats, pattern=r"^adm_stats$"))
 
+    # ======================================================
+    # RUN BOT
+    # ======================================================
     logger.info("🚀 Bot ishga tushdi...")
     app.run_polling(drop_pending_updates=True)
 
