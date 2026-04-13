@@ -1,8 +1,4 @@
-"""
-Foydalanuvchi handlerlari.
-Native Telegram polllar ketma-ket yuboriladi (quiz-bot uslubida).
-PollAnswerHandler anonim javoblarni qayd etadi va keyingi savolni yuboradi.
-"""
+
 
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
